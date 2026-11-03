@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="es">
+<head>
+ <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>BAYA · Laboratorio de clasificación óptica</title>
+ <link rel="icon" href="data:,">
+ <link rel="stylesheet" href="estilos.css">
+ <script type="importmap">{"imports":{"three":"/vendor/three.module.js","three/addons/":"/vendor/"}}</script>
+</head>
+<body>
+ <header><div class="identity"><strong>BAYA</strong><span>Laboratorio de clasificación óptica</span></div><div class="context">UNT · Robótica <span class="version">Avance 0.1</span></div></header>
+ <div class="notice">Referencia provisional: KATO 260 · Geometría proporcional estimada · Clasificación didáctica con datos sintéticos</div>
+ <main>
+  <aside class="parameters">
+   <h1>Clasificadora de arándanos</h1>
+   <div role="tablist" aria-label="Tareas" class="tabs"><button role="tab" aria-selected="true" data-tab="proceso">Proceso</button><button role="tab" aria-selected="false" data-tab="clasificacion">Clasificación</button><button role="tab" aria-selected="false" data-tab="modelo">Modelo 3D</button><button role="tab" aria-selected="false" data-tab="resultados">Resultados</button></div>
+   <section id="proceso" class="tab-panel">
+    <h2>Alimentación y transporte</h2>
+    <label for="velocidad">Velocidad de transporte <span>m/s</span></label><input id="velocidad" type="number" min="0.05" max="1.2" step="0.05" value="0.35">
+    <label for="alimentacion">Alimentación solicitada <span>frutos/s total</span></label><input id="alimentacion" type="number" min="0" max="40" step="1" value="4">
+    <p class="help">Cuatro canales académicos. La entrada espera si no hay separación suficiente.</p>
+    <label for="semilla">Semilla reproducible</label><input id="semilla" type="number" min="0" max="2147483647" step="1" value="260">
+    <p class="help">Para cambiar la semilla, reinicia primero. Los umbrales se capturan al detectar cada fruto.</p>
+    <button class="primary wide" id="aplicar">Aplicar parámetros</button>
+    <h2>Recorrido del proceso</h2><ol class="flow"><li>Alimentar y distribuir</li><li>Transportar y girar</li><li>Inspeccionar características</li><li>Clasificar y seguir el fruto</li><li>Separar en la salida asignada</li></ol>
+    <button id="explicar" class="wide">Explicar siguiente etapa</button><p id="explicacion" class="help">Inicia la simulación para observar el flujo completo.</p>
+   </section>
+   <section id="clasificacion" class="tab-panel" hidden>
+    <h2>BAYA Reglas v1</h2><p>Reglas sobre diámetro, índice azul y defecto superficial sintéticos. No usa la etiqueta de referencia.</p>
+    <label for="diametro">Diámetro premium <span>mm</span></label><input id="diametro" type="number" value="17" min="10" max="25" step="0.5">
+    <label for="defecto">Defecto máximo <span>0–1</span></label><input id="defecto" type="number" value="0.28" min="0" max="1" step="0.01">
+    <label for="azul">Índice azul mínimo <span>0–1</span></label><input id="azul" type="number" value="0.45" min="0" max="1" step="0.01">
+    <label for="latencia">Procesamiento simulado <span>s</span></label><input id="latencia" type="number" value="0.06" min="0" max="6" step="0.01">
+    <label for="fallo">Probabilidad de fallo <span>0–1</span></label><input id="fallo" type="number" value="0.02" min="0" max="1" step="0.01">
+    <button id="aplicar-clase" class="primary wide">Aplicar clasificación</button><p class="help">Entrenamiento, cámara real y aprendizaje automático: ampliaciones pendientes. No se estima una confianza probabilística.</p>
+   </section>
+   <section id="modelo" class="tab-panel" hidden>
+    <h2>Explorar conjuntos</h2><label for="modo">Representación</label><select id="modo"><option value="exterior">Exterior</option><option value="interior">Interior conceptual</option><option value="explotada">Vista explotada</option></select>
+    <label class="check"><input id="etiquetas" type="checkbox" checked> Etiquetas de módulos</label><label class="check"><input id="cotas" type="checkbox"> Cotas estimadas</label><label class="check"><input id="trayecto" type="checkbox" checked> Recorrido del fruto seleccionado</label>
+    <button id="exportar" class="wide">Exportar modelo GLB</button><p class="help">Una unidad = 1 metro. Dimensiones académicas sin planos verificados. Internos, cuatro canales y tres salidas más recuperación son abstracciones. Exporta conjuntos estáticos en posición ensamblada.</p>
+    <h2>Referencia utilizada</h2><p>Fotografía de la página 1 del folleto KATO 260 con LUCAi de TOMRA. Sin geometría transferida de la 5S.</p>
+   </section>
+   <section id="resultados" class="tab-panel" hidden>
+    <h2>Evaluación sintética</h2><div id="metricas">Aún no hay predicciones.</div><button id="actualizar-metricas" class="wide">Actualizar métricas</button><a class="button wide" href="/api/resultados.csv" download="frutos.csv">Descargar frutos CSV</a><a class="button wide" href="/api/eventos.csv" download="eventos.csv">Descargar eventos CSV</a><p class="help">Matriz: filas = referencia, columnas = predicción. El registro de eventos conserva los últimos 1000. Máximo 5000 frutos por escenario. Los resultados sintéticos no describen el rendimiento industrial.</p>
+   </section>
+   <p id="mensaje" role="status" aria-live="polite"></p>
+  </aside>
+  <section class="workspace" aria-label="Escena y estado del proceso">
+   <div class="scene-top"><div class="view-buttons" aria-label="Vistas"><button data-view="iso" class="active">Isométrica</button><button data-view="top">Superior</button><button data-view="front">Frontal</button><button data-view="side">Lateral</button></div><span id="conexion">Conectando…</span></div>
+   <div id="escena"><div id="rotulo">Arrastra para orbitar · rueda para acercar · selecciona un fruto o una pieza</div><div id="labels"></div><div id="scene-error" role="alert" hidden></div></div>
+   <div class="legend"><span><i style="background:#006f79"></i>Premium</span><span><i style="background:#b37a14"></i>Estándar</span><span><i style="background:#b54c41"></i>Rechazo</span><span><i style="background:#657381"></i>Recuperación</span><span class="unit">+X flujo · +Y arriba · metros</span></div>
+   <div class="statistics"><div><span>Ingresados</span><strong id="ingresados">0</strong></div><div><span>En proceso</span><strong id="en_proceso">0</strong></div><div><span>En salidas</span><strong id="salidos">0</strong></div><div><span>Recuperación</span><strong id="revision">0</strong></div><div><span>Conservación</span><strong id="balance">0 = 0 + 0</strong></div></div>
+   <section class="events"><h2>Registro de eventos <span>tiempo de simulación</span></h2><div id="eventos" aria-label="Últimos eventos">Sin eventos.</div></section>
+  </section>
+  <aside class="inspector"><h2>Inspección</h2><p class="help">Selecciona una pieza para conocer su función o un fruto para ver sus mediciones.</p><label for="buscar-fruto">Identificador del fruto</label><div class="inline"><input id="buscar-fruto" type="number" min="1" value="1"><button id="buscar">Ver</button></div><label class="check"><input type="checkbox" id="seguir"> Seguir selección</label><div id="inspeccion"><p>La etiqueta de referencia sólo se usa para evaluar. El clasificador recibe mediciones sintéticas con ruido.</p></div><hr><h2>Estado de las salidas</h2><dl id="salidas"></dl><p class="help">La descarga lateral es cinemática ilustrativa. No modela presiones ni dinámica neumática.</p></aside>
+ </main>
+ <footer><div class="play-controls"><button id="iniciar" class="primary">Iniciar</button><button id="pausar">Pausar</button><button id="paso">Paso 0,01 s</button><button id="reiniciar">Reiniciar</button></div><label class="speed" for="reproduccion">Reproducción <select id="reproduccion"><option value="0.25">0,25×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select></label><div class="clock"><span id="modo-reloj">Pausado</span><strong id="tiempo">0,00 s</strong><span id="fps">— FPS</span></div></footer>
+ <script type="module" src="app.js"></script>
+</body></html>

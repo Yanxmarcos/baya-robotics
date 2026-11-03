@@ -1,0 +1,14 @@
+{
+  "name": "baya-clasificacion-optica",
+  "version": "0.1.0",
+  "private": true,
+  "description": "BAYA original, preparado para Vercel con el motor en el navegador",
+  "type": "module",
+  "engines": { "node": "22.x" },
+  "scripts": {
+    "build": "node herramientas/construir.mjs",
+    "dev": "node herramientas/servir.mjs",
+    "preview": "node herramientas/servir.mjs",
+    "test": "node --test pruebas/paquete.test.mjs"
+  }
+}

@@ -1,0 +1,120 @@
+{
+  "errores": [],
+  "solicitudes_externas": [],
+  "comparacion_visual": [
+    {
+      "vista": "isometrica",
+      "pixeles_diferentes": 1310,
+      "proporcion": 0.0008315559618119033,
+      "pixeles_escena_diferentes": 0
+    },
+    {
+      "vista": "superior",
+      "pixeles_diferentes": 1310,
+      "proporcion": 0.0008315559618119033,
+      "pixeles_escena_diferentes": 0
+    },
+    {
+      "vista": "frontal",
+      "pixeles_diferentes": 1310,
+      "proporcion": 0.0008315559618119033,
+      "pixeles_escena_diferentes": 0
+    },
+    {
+      "vista": "lateral",
+      "pixeles_diferentes": 1310,
+      "proporcion": 0.0008315559618119033,
+      "pixeles_escena_diferentes": 0
+    },
+    {
+      "vista": "interior",
+      "pixeles_diferentes": 1310,
+      "proporcion": 0.0008315559618119033,
+      "pixeles_escena_diferentes": 0
+    },
+    {
+      "vista": "explotada",
+      "pixeles_diferentes": 1310,
+      "proporcion": 0.0008315559618119033,
+      "pixeles_escena_diferentes": 0
+    }
+  ],
+  "pruebas": [
+    "Carga del runtime y escena WebGL sin backend",
+    "Paridad de nueve escenarios CPython / WebAssembly, incluyendo semillas y todos los frutos",
+    "Seis vistas comparadas visualmente con la aplicación original",
+    "Velocidad, alimentación, semilla, reproducción, inicio, pausa y paso manual",
+    "Inspector, seguimiento, explicación de etapas, etiquetas, cotas, recorrido y exportación GLB",
+    "Matriz de confusión, CSV de frutos y CSV de eventos",
+    "Sesiones independientes por pestaña",
+    "Vista móvil sin desbordamiento horizontal"
+  ],
+  "versiones": {
+    "python": "3.13.2",
+    "numpy": "2.2.5",
+    "pyodide": "0.28.3"
+  },
+  "paridad": {
+    "escenarios": [
+      "escenario_240",
+      "cambio_velocidad",
+      "fallo_percepcion",
+      "decision_tardia",
+      "alimentacion_saturada",
+      "umbrales_durante_el_flujo",
+      "semilla_0",
+      "semilla_42",
+      "semilla_2147483647"
+    ],
+    "tolerancia": 1e-09,
+    "base": {
+      "ingresados": 240,
+      "en_proceso": 0,
+      "salidos": 240,
+      "perdidas": 0,
+      "rechazo": 113,
+      "estandar": 50,
+      "premium": 73,
+      "revision": 4
+    },
+    "matriz": [
+      [
+        104,
+        3,
+        4
+      ],
+      [
+        7,
+        44,
+        0
+      ],
+      [
+        2,
+        3,
+        69
+      ]
+    ]
+  },
+  "glb": {
+    "bytes": 633596,
+    "nodos": 197,
+    "mallas": 188
+  },
+  "ok": true,
+  "fecha_verificacion": "2026-11-02",
+  "archivos_originales_preservados": {
+    "interfaz/index.html": "18a7a80149299613eb6435774a32afefc449e268e9028589cb78ac661163e46d",
+    "interfaz/estilos.css": "25514d4beaeb706bbd6db84b76116d892dcc5abd35a3db9228a2c0e12bd421dd",
+    "interfaz/app.js": "6cfaf13e238b8ec82c1d43e0bb07569da0b23a1ed83ef89f72b6e25813f8fd74",
+    "interfaz/modelo.js": "b5d3a7b1f7bd5ac7e6fd8e0d3839e33d2e5013719dec560872795c75f2cefa80",
+    "interfaz/vendor/three.module.js": "ce1fa418de16a19495a9f72495580e3015d7745c296d3ce0485897f902ddedfb",
+    "interfaz/vendor/OrbitControls.js": "80efaadea4f8a636a65fb0bd08bfef62f3d93a0bb94e2e7500f23176c5c07f4e",
+    "interfaz/vendor/GLTFExporter.js": "76526d2be01c3fdf17c8efcf7c1c67dfd1ef30ede3196865eb69fa49196f80aa",
+    "interfaz/vendor/BufferGeometryUtils.js": "c25b7930e570e9ec56173cd3b866ec8d2e10016630db3937efb439daf1cedbf6",
+    "interfaz/vendor/LICENSE": "4c40a1ef62450b857c3b2aaf294936304cd552d965fbcd9d32d4c5bcf4ba4454",
+    "motor/simulacion.py": "de44ee9b87ea3defade493391db2a5fb58158543e5a5a8790c1b0ccbdc373a31",
+    "motor/clasificador.py": "012c984cecee78a55f0fed15d13b68fba9d336eb517a7356001982408bb97b3b",
+    "motor/modelo_clasificadora.py": "fff781d6c3c0f813ff8ede491f2806e1d55a7907f9433c5e4c145b7445cf1a99",
+    "motor/configuracion/parametros.json": "056ae472b2e8a05e2e6130114a4b5fcdaa96d4a2af33cc3eb04c0ac879e7553b"
+  }
+}

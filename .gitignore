@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.cache-pyodide/
+.vercel/
+__pycache__/
+*.pyc
+.venv/
+.env
+.env.*
+!.env.example
+pruebas/salidas/
+.DS_Store
+Thumbs.db
