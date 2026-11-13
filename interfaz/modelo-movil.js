@@ -3,9 +3,15 @@ import {carrito, estaciones, pista} from './seguimiento.js';
 
 export const separacionPisos = 1.50 * 8.5 / 21;
 export const alturaSegundoPiso = .318 + separacionPisos;
-export const puntoDespacho = new THREE.Vector3(estaciones[2].x, .816, estaciones[2].z + .84);
+const posicionBoca = .69;
+const largoBoca = .19;
+const grosorBoca = .052;
+const alturaBoca = .002;
+const desfasePivote = .17;
+const profundidadMesa = .34;
+const grosorTablero = .052;
 
-export function construirPista() {
+export function construirPista({alturaRiel, entradaX, entradaZ, centroCestas}) {
   const root = new THREE.Group();
   root.name = 'Pista_de_poscosecha';
   const posiciones = [], indices = [];
@@ -32,45 +38,51 @@ export function construirPista() {
   linea.receiveShadow = true;
   root.add(linea);
 
-  const labels = estaciones.map(({nombre, x, z}) => {
-    const lado = Math.sign(z), entrega = nombre === 'Despacho';
+  let puntoDespacho;
+  const labels = estaciones.map(({nombre, x, z, sentido}) => {
+    const despacho = nombre === 'Despacho';
+    const mesaX = x + sentido * (despacho ? centroCestas : entradaX);
+    // El riel desplegado apunta hacia -Z cuando el carrito está orientado a +X.
+    const bordeBoca = entradaZ - desfasePivote - posicionBoca - largoBoca / 2;
+    const mesaZ = z + (despacho ? -.84 : bordeBoca - profundidadMesa / 2 - .008);
+    const alto = despacho ? .79 : alturaRiel + alturaBoca + (grosorBoca - grosorTablero) / 2;
+    if (despacho) puntoDespacho = new THREE.Vector3(mesaX, alto + grosorTablero / 2, mesaZ);
     const plataforma = new THREE.Mesh(
       new THREE.BoxGeometry(1.06, .023, .61),
-      new THREE.MeshStandardMaterial({color: entrega ? 0x2c9cc1 : 0xbf7928, roughness: .9}),
+      new THREE.MeshStandardMaterial({color: despacho ? 0x2c9cc1 : 0xbf7928, roughness: .9}),
     );
-    plataforma.position.set(x, .01, z + lado * .57);
+    plataforma.position.set(mesaX, .01, mesaZ);
     plataforma.receiveShadow = true;
     root.add(plataforma);
     const borde = new THREE.Mesh(new THREE.BoxGeometry(.88, .005, .065), new THREE.MeshBasicMaterial({color: 0xf7e4b8}));
-    borde.position.set(x, .026, z + lado * .39);
+    borde.position.set(mesaX, .026, mesaZ + (despacho ? .24 : .25));
     root.add(borde);
     const mesa = new THREE.Group();
-    const alto = entrega ? .79 : alturaSegundoPiso + .16;
-    const mesaX = x - (entrega ? 0 : .29);
-    const centro = z + lado * .84;
+    mesa.name = nombre;
     const materialMesa = plataforma.material;
-    const tablero = new THREE.Mesh(new THREE.BoxGeometry(.97, .052, .34), materialMesa);
-    tablero.position.set(mesaX, alto, centro);
+    const tablero = new THREE.Mesh(new THREE.BoxGeometry(.97, grosorTablero, profundidadMesa), materialMesa);
+    tablero.name = despacho ? 'Mesa_de_despacho' : 'Mesa_de_recojo';
+    tablero.position.set(mesaX, alto, mesaZ);
     tablero.castShadow = tablero.receiveShadow = true;
     mesa.add(tablero);
     for (const dx of [-.39, .39]) {
       for (const dz of [-.13, .13]) {
         const pata = new THREE.Mesh(new THREE.BoxGeometry(.042, alto, .042), materialMesa);
-        pata.position.set(mesaX + dx, alto / 2, centro + dz);
+        pata.position.set(mesaX + dx, alto / 2, mesaZ + dz);
         pata.castShadow = true;
         mesa.add(pata);
       }
     }
     root.add(mesa);
-    return {text: nombre, position: new THREE.Vector3(mesaX, alto + .07, z + lado * .70)};
+    return {text: nombre, position: new THREE.Vector3(mesaX, alto + .07, mesaZ + (despacho ? -.25 : .48))};
   });
-  return {root, labels};
+  return {root, labels, puntoDespacho};
 }
 
 export function construirRiel(altura, entradaX, entradaZ) {
   const root = new THREE.Group(), brazo = new THREE.Group(), pickables = [];
   root.name = 'Riel_lateral_de_recojo';
-  root.position.set(entradaX, altura, entradaZ-.17);
+  root.position.set(entradaX, altura, entradaZ-desfasePivote);
   root.userData = {etiqueta:'Riel lateral de recojo',funcion: 'Gira hacia la izquierda para recibir arándanos cargados a mano y conducirlos a la banda.',
     evidencia: 'Riel y accionamiento conceptuales del segundo piso.'};
   root.add(brazo);
@@ -87,7 +99,7 @@ export function construirRiel(altura, entradaX, entradaZ) {
   }
   pieza('Banda_del_riel',new THREE.BoxGeometry(.68,.044,.17),banda,.34,0,0);
   for (const z of [-.094,.094]) pieza('Guía_del_riel',new THREE.BoxGeometry(.68,.07,.023),naranja,.34,.023,z);
-  pieza('Boca_de_carga',new THREE.BoxGeometry(.19,.052,.25),naranja,.69,.002,0);
+  pieza('Boca_de_carga',new THREE.BoxGeometry(largoBoca,grosorBoca,.25),naranja,posicionBoca,alturaBoca,0);
   root.add(pieza('Puente_a_la_banda',new THREE.BoxGeometry(.15,.032,.18),banda,-.008,-.017,.09));
   const rodillos=[];
   for (let i=1;i<=9;i++) {

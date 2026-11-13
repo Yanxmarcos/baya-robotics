@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {OrbitControls} from './vendor/OrbitControls.js';
 import {GLTFExporter} from './vendor/GLTFExporter.js';
 import {construirModelo} from './modelo.js';
-import {alturaSegundoPiso, construirBaseMovil, construirPista, construirRiel, puntoDespacho} from './modelo-movil.js';
+import {alturaSegundoPiso, construirBaseMovil, construirPista, construirRiel} from './modelo-movil.js';
 import {SeguidorDeLinea, estaciones} from './seguimiento.js';
 
 const $=id=>document.getElementById(id), fmt=(n,d=2)=>Number(n).toLocaleString('es-PE',{maximumFractionDigits:d,minimumFractionDigits:d});
@@ -132,9 +132,6 @@ function init3D(){
  floor.receiveShadow=true;
  scene.add(floor);
 
- const escenario=construirPista();
- scene.add(escenario.root);
- for(const l of escenario.labels)addLabel(l.text,l.position,false,true);
  base=construirBaseMovil();
  scene.add(base.root);
  clasificador=new THREE.Group();
@@ -144,12 +141,20 @@ function init3D(){
  base.root.add(clasificador);
  modelo=construirModelo(parametros);
  clasificador.add(modelo.root);
- riel=construirRiel(alturaSegundoPiso+parametros.geometria.altura_banda_m*escalaMovil,clasificador.position.x,clasificador.position.z);
+ const {x:entradaX,z:entradaZ}=clasificador.position;
+ const alturaRiel=alturaSegundoPiso+parametros.geometria.altura_banda_m*escalaMovil;
+ riel=construirRiel(alturaRiel,entradaX,entradaZ);
  base.root.add(riel.root);
- for(const [i,[clase,{cesta,contenido}]] of Object.entries(modelo.cestas).entries()){
+ const cestas=Object.entries(modelo.cestas);
+ const centroCestas=entradaX+escalaMovil*cestas.reduce((suma,[,{origen}])=>suma+origen.x,0)/cestas.length;
+ const escenario=construirPista({alturaRiel,entradaX,entradaZ,centroCestas});
+ scene.add(escenario.root);
+ for(const l of escenario.labels)addLabel(l.text,l.position,false,true);
+ for(const [i,[clase,{cesta,contenido}]] of cestas.entries()){
    const mesa=cesta.clone();
-   const punto=puntoDespacho.clone().add(new THREE.Vector3((i-1.5)*.165,0,0));
+   const punto=escenario.puntoDespacho.clone().add(new THREE.Vector3(((cestas.length-1)/2-i)*.165,0,0));
    mesa.position.copy(punto);
+   mesa.rotation.y=Math.PI;
    mesa.scale.setScalar(escalaMovil);
    mesa.visible=false;
    scene.add(mesa);
