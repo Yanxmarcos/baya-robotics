@@ -2,22 +2,36 @@ import * as THREE from 'three';
 import {OrbitControls} from './vendor/OrbitControls.js';
 import {GLTFExporter} from './vendor/GLTFExporter.js';
 import {construirModelo} from './modelo.js';
-import {construirBaseMovil, construirPista} from './modelo-movil.js';
+import {alturaSegundoPiso, construirBaseMovil, construirPista, construirRiel, puntoDespacho} from './modelo-movil.js';
 import {SeguidorDeLinea, estaciones} from './seguimiento.js';
 
 const $=id=>document.getElementById(id), fmt=(n,d=2)=>Number(n).toLocaleString('es-PE',{maximumFractionDigits:d,minimumFractionDigits:d});
-let estado=null,parametros=null,renderer,scene,camera,controls,modelo,base,clasificador,selected=null,frutoSeleccionado=null;
+let estado=null,parametros=null,renderer,scene,camera,controls,modelo,base,clasificador,riel,selected=null,frutoSeleccionado=null;
 let muestras=[],mallas=new Map(),labels=[],trayectoriaLinea,frames=0,fpsTime=performance.now(),currentView='follow';
 const geometriaFruto=new THREE.SphereGeometry(1,12,9), materialesFruto=new Map();
 const seguidor = new SeguidorDeLinea();
 let tiempoVisual=0;
 const escalaMovil = .205;
 const centroCamara = new THREE.Vector3();
-const centroEquipo = new THREE.Vector3(0, .54, .09);
+const centroEquipo = new THREE.Vector3(-.04, .67, .01);
 const puntoProyectado = new THREE.Vector3();
 const ejeVertical = new THREE.Vector3(0,1,0);
 let giroCamara=0;
 const datosPista = Object.fromEntries(['sensor-izq', 'sensor-der', 'vueltas', 'estacion'].map(id => [id, $(id)]));
+const cicloInicial = {fase:'traslado',fase_s:0,estacion:null,movimiento_s:0,cestas:{},entregados:{},ultima_entrega:{}};
+const fases = {
+  traslado:['En ruta','El carrito sigue la línea. La banda termina de clasificar el lote a bordo.'],
+  desplegar:['Abriendo el riel','El carrito se detiene y gira el riel hacia la estación.'],
+  carga:['Recojo manual','Se cargan arándanos en el extremo del riel.'],
+  replegar:['Cerrando el riel','El riel vuelve al segundo piso antes de avanzar.'],
+  espera_despacho:['Esperando el despacho','El carrito espera a que termine la clasificación.'],
+  descarga:['Retirando las cestas','Las cuatro cestas pasan a la mesa de despacho.'],
+};
+const cestasDespacho = new Map();
+const etiquetaPieza = $('nombre-pieza');
+function nombreComponente(pieza){
+  return pieza.userData.etiqueta ?? pieza.name.replaceAll('_',' ');
+}
 async function api(path,data){const options=data===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)};const r=await fetch('/api/'+path,options);const j=await r.json();if(!r.ok)throw Error(j.error||'Error HTTP '+r.status);return j;}
 function mensaje(text,error=false){$('mensaje').textContent=text;$('mensaje').style.color=error?'#8a3b29':'#006557';}
 async function accion(path,data={}){try{const e=await api(path,data);if(e.contadores)actualizar(e);mensaje('');return e;}catch(e){mensaje(e.message,true);return null;}}
@@ -42,10 +56,10 @@ $('actualizar-metricas').onclick=metricas;
 async function metricas(){try{const r=await api('resultados');if(!r.evaluados){$('metricas').textContent='Aún no hay predicciones.';return;}$('metricas').replaceChildren();const p=document.createElement('p');p.textContent=`${r.evaluados} frutos con predicción · Exactitud sintética ${fmt(100*r.exactitud,1)} %. Sin predicción: ${r.sin_prediccion}.`;$('metricas').append(p);const table=document.createElement('table');const head=table.insertRow();['Ref. / Pred.','Rech.','Est.','Prem.'].forEach(t=>{const th=document.createElement('th');th.textContent=t;head.append(th);});r.matriz.forEach((row,i)=>{const tr=table.insertRow();[r.clases[i],...row].forEach(v=>tr.insertCell().textContent=v);});$('metricas').append(table);const note=document.createElement('p');note.className='help';note.textContent='Precisión, recall y F1 por clase disponibles en /api/resultados. Sólo datos sintéticos de este escenario.';$('metricas').append(note);}catch(e){mensaje(e.message,true);}}
 const etapas=[
   ['Guiado: los dos sensores reflectivos leen la línea negra y corrigen el rumbo.','route'],
-  ['Alimentación: los arándanos entran a los canales sobre el carrito.','follow'],
+  ['Recojo: el carrito para en las estaciones naranjas y gira el riel para recibir la carga manual.','follow'],
   ['Transporte: los rodillos llevan cada fruto hacia la inspección.','top'],
   ['Inspección: el sistema genera mediciones sintéticas y asigna una clase.','front'],
-  ['Separación: las bayas caen en la salida asignada durante el recorrido.','side'],
+  ['Despacho: se retiran las cuatro cestas en la estación celeste.','route'],
 ];
 let etapa=0;
 $('explicar').onclick=()=>{
@@ -64,7 +78,7 @@ function vista(v){
     button.setAttribute('aria-pressed',String(activa));
   });
   const offsets={
-    follow:[1.63,1.10,1.80], route:[.001,11.3,.55],
+    follow:[1.65,1.16,2.05], route:[.001,12.0,.55],
     top:[.001,2.7,.025], front:[2.30,.63,.03], side:[0,.62,2.42],
   };
   const baseLocal = v==='route' ? centroCamara.set(0,0,0) : base.root.localToWorld(centroCamara.copy(centroEquipo));
@@ -126,14 +140,23 @@ function init3D(){
  clasificador=new THREE.Group();
  clasificador.name='Clasificador_compacto';
  clasificador.scale.setScalar(escalaMovil);
- clasificador.position.set(-parametros.geometria.largo_m*escalaMovil/2-.045,.392,-.04);
+ clasificador.position.set(-parametros.geometria.largo_m*escalaMovil/2-.045,alturaSegundoPiso,-.04);
  base.root.add(clasificador);
  modelo=construirModelo(parametros);
  clasificador.add(modelo.root);
+ riel=construirRiel(alturaSegundoPiso+parametros.geometria.altura_banda_m*escalaMovil,clasificador.position.x,clasificador.position.z);
+ base.root.add(riel.root);
+ for(const [i,[clase,{cesta,contenido}]] of Object.entries(modelo.cestas).entries()){
+   const mesa=cesta.clone();
+   const punto=puntoDespacho.clone().add(new THREE.Vector3((i-1.5)*.165,0,0));
+   mesa.position.copy(punto);
+   mesa.scale.setScalar(escalaMovil);
+   mesa.visible=false;
+   scene.add(mesa);
+   cestasDespacho.set(clase,{mesa,punto,contenido:mesa.children.slice(-contenido.length)});
+ }
  for(const l of modelo.labels)addLabel(l.text,l.position);
- addLabel(`Largo visual ${fmt(parametros.geometria.largo_m*escalaMovil)} m`,new THREE.Vector3(2.5,.08,-.8),true);
- addLabel(`Ancho visual ${fmt(parametros.geometria.ancho_m*escalaMovil)} m`,new THREE.Vector3(.05,.2,.6),true);
- addLabel(`Banda sobre la base ${fmt(parametros.geometria.altura_banda_m*escalaMovil)} m`,new THREE.Vector3(0,.8,-.65),true);
+ addLabel('Segundo piso · separación ≈ 8,5 cm',new THREE.Vector3(2.5,.04,-1.55),true);
  actualizarCarrito(0);
  controls=new OrbitControls(camera,renderer.domElement);
  controls.enableDamping=true;
@@ -151,37 +174,63 @@ function init3D(){
  new ResizeObserver(resize).observe(host);
  resize();
 
- let down=null;
- renderer.domElement.addEventListener('pointerdown',e=>down=[e.clientX,e.clientY]);
- renderer.domElement.addEventListener('pointerup',e=>{
-   if(!down||Math.hypot(e.clientX-down[0],e.clientY-down[1])>5)return;
-   const rect=renderer.domElement.getBoundingClientRect();
-   const mouse=new THREE.Vector2((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);
-   const ray=new THREE.Raycaster();
+ const canvas=renderer.domElement;
+ const piezas=[...modelo.pickables,...base.pickables,...riel.pickables];
+ const ray=new THREE.Raycaster(), mouse=new THREE.Vector2();
+ function objetoEn(e){
+   const rect=canvas.getBoundingClientRect();
+   mouse.set((e.clientX-rect.left)/rect.width*2-1,1-(e.clientY-rect.top)/rect.height*2);
    ray.setFromCamera(mouse,camera);
-   const hits=ray.intersectObjects([...mallas.values(),...modelo.pickables,...base.pickables],false).filter(h=>{
+   return ray.intersectObjects([...mallas.values(),...piezas],false).find(h=>{
      let o=h.object;
      while(o){if(!o.visible)return false;o=o.parent;}
      return true;
-   });
-   if(!hits.length)return;
-   const o=hits[0].object;
+   })?.object;
+ }
+ function componente(o){
+   while(o.parent&&!o.userData.funcion)o=o.parent;
+   return o;
+ }
+ let down=null;
+ function ocultarNombre(){etiquetaPieza.hidden=true;canvas.style.cursor='';}
+ canvas.addEventListener('pointerdown',e=>{down=[e.clientX,e.clientY];ocultarNombre();});
+ canvas.addEventListener('pointermove',e=>{
+   if(e.pointerType==='touch'||e.buttons)return;
+   const o=objetoEn(e);
+   if(!o){ocultarNombre();return;}
+   etiquetaPieza.textContent=o.userData.fruto?`Fruto #${o.userData.fruto}`:nombreComponente(componente(o));
+   etiquetaPieza.hidden=false;
+   const rect=host.getBoundingClientRect();
+   const x=e.clientX-rect.left,y=e.clientY-rect.top;
+   etiquetaPieza.style.left=`${Math.max(6,Math.min(x+14,rect.width-etiquetaPieza.offsetWidth-6))}px`;
+   etiquetaPieza.style.top=`${y+etiquetaPieza.offsetHeight+14>rect.height?y-etiquetaPieza.offsetHeight-10:y+12}px`;
+   canvas.style.cursor='pointer';
+ });
+ canvas.addEventListener('pointerleave',ocultarNombre);
+ canvas.addEventListener('pointercancel',()=>{down=null;ocultarNombre();});
+ canvas.addEventListener('wheel',ocultarNombre,{passive:true});
+ canvas.addEventListener('pointerup',e=>{
+   const inicio=down;
+   down=null;
+   if(!inicio||Math.hypot(e.clientX-inicio[0],e.clientY-inicio[1])>5)return;
+   const o=objetoEn(e);
+   if(!o)return;
+   $('detalle-inspeccion').open=true;
    if(o.userData.fruto){
      selected=o.userData.fruto;
-     const f=estado.frutos.find(f=>f.id===selected);
+     const f=estado?.frutos.find(f=>f.id===selected);
      if(f){inspeccionarFruto(f);dibujarRecorrido(f);}
    }else{
      selected=null;
      frutoSeleccionado=null;
-     let pieza=o;
-     while(pieza.parent&&!pieza.userData.funcion)pieza=pieza.parent;
-     inspeccionarPieza(o,pieza.userData);
+     const pieza=componente(o);
+     inspeccionarPieza(pieza,pieza.userData);
    }
  });
  requestAnimationFrame(animar);
 }
 function textPair(dl,label,value){const dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;dl.append(dt,dd);}
-function inspeccionarPieza(o,data){$('inspeccion').replaceChildren();const h=document.createElement('h2');h.textContent=o.name.replaceAll('_',' ');const p=document.createElement('p');p.textContent=data.funcion||'Pieza del conjunto';const note=document.createElement('p');note.className='help';note.textContent=data.evidencia||'Geometría académica estimada';$('inspeccion').append(h,p,note);if(trayectoriaLinea)trayectoriaLinea.visible=false;}
+function inspeccionarPieza(o,data){$('inspeccion').replaceChildren();const h=document.createElement('h2');h.textContent=nombreComponente(o);const p=document.createElement('p');p.textContent=data.funcion||'Pieza del conjunto';const note=document.createElement('p');note.className='help';note.textContent=data.evidencia||'Geometría académica estimada';$('inspeccion').append(h,p,note);if(trayectoriaLinea)trayectoriaLinea.visible=false;}
 function inspeccionarFruto(f){frutoSeleccionado=f;$('inspeccion').replaceChildren();const h=document.createElement('h2');h.textContent='Fruto #'+f.id;const dl=document.createElement('dl');textPair(dl,'Canal · estado',`${f.canal+1} · ${f.estado}`);textPair(dl,'Diámetro de referencia',fmt(f.diametro_mm,1)+' mm');textPair(dl,'Etiqueta de evaluación',f.referencia);textPair(dl,'Medición recibida',f.mediciones?`${fmt(f.mediciones.diametro_mm,1)} mm · azul ${fmt(f.mediciones.azul)} · defecto ${fmt(f.mediciones.defecto)}`:'Pendiente de inspección');textPair(dl,'Predicción · destino',`${f.prediccion||'pendiente'} · ${f.destino||'pendiente'}`);for(const [k,label]of [['t_deteccion','Detección'],['t_decision','Decisión disponible'],['t_actuacion','Actuación']])textPair(dl,label,f[k]==null?'Pendiente':fmt(f[k],3)+' s');if(f.fallo)textPair(dl,'Contingencia',f.fallo);$('inspeccion').append(h,dl);}
 function limpiarRecorrido(){
   if(!trayectoriaLinea)return;
@@ -199,13 +248,30 @@ function dibujarRecorrido(f){
   clasificador.add(trayectoriaLinea);
   trayectoriaLinea.visible=$('trayecto').checked;
 }
-function actualizarCarrito(tiempo){
+function actualizarCarrito(tiempo,ciclo=cicloInicial){
   const pose=seguidor.avanzarHasta(tiempo);
   base.actualizar(pose);
-  const siguiente=estaciones[pose.siguiente]?.nombre ?? 'Inicio de vuelta';
-  const valores={'sensor-izq':pose.izq>=.5?'Línea':'Piso','sensor-der':pose.der>=.5?'Línea':'Piso','vueltas':String(pose.vueltas),'estacion':siguiente};
+  const punto=estaciones[ciclo.estacion ?? pose.siguiente]?.nombre ?? 'Inicio de vuelta';
+  const valores={'sensor-izq':pose.izq>=.5?'Línea':'Piso','sensor-der':pose.der>=.5?'Línea':'Piso','vueltas':String(pose.vueltas),'estacion':punto};
   for(const [id, valor] of Object.entries(valores)){
     if(datosPista[id].textContent!==valor)datosPista[id].textContent=valor;
+  }
+}
+function actualizarCestas(ciclo){
+  const enDespacho=ciclo.fase==='descarga';
+  const entregados=Object.values(ciclo.entregados).some(Boolean);
+  for(const [i,[clase,{cesta,contenido,origen}]] of Object.entries(modelo.cestas).entries()){
+    const {mesa,punto,contenido:contenidoMesa}=cestasDespacho.get(clase);
+    cesta.position.copy(origen);
+    if(enDespacho){
+      const u=THREE.MathUtils.clamp((ciclo.fase_s-i*.29)/1.5,0,1);
+      const destino=cesta.parent.worldToLocal(punto.clone());
+      cesta.position.lerp(destino,u*u*(3-2*u));
+      cesta.position.y+=Math.sin(u*Math.PI)*.92;
+    }
+    mesa.visible=entregados&&!enDespacho;
+    contenido.forEach((fruto,j)=>{fruto.visible=j<(ciclo.cestas[clase]??0);});
+    contenidoMesa.forEach((fruto,j)=>{fruto.visible=j<(ciclo.ultima_entrega[clase]??0);});
   }
 }
 function seguirCarrito(){
@@ -242,7 +308,60 @@ function proyectarEtiquetas(){
     l.el.style.top=y+'px';
   }
 }
-function actualizar(e){if(estado&&e.t_s<estado.t_s){muestras=[];tiempoVisual=0;seguidor.reiniciar();}estado=e;muestras.push({e,real:performance.now()});if(muestras.length>4)muestras.shift();for(const key of ['ingresados','en_proceso','salidos','revision'])$(key).textContent=e.contadores[key];$('balance').textContent=`${e.contadores.ingresados} = ${e.contadores.en_proceso} + ${e.contadores.salidos}`;$('tiempo').textContent=fmt(e.t_s)+' s';$('modo-reloj').textContent=e.activa?'En marcha':'Pausado';$('iniciar').textContent=e.t_s?'Reanudar':'Iniciar';$('iniciar').disabled=e.activa;$('pausar').disabled=!e.activa;$('paso').disabled=e.activa;$('reiniciar').disabled=false;$('conexion').textContent=e.error_motor?'Error del motor':'Servidor local conectado';if(e.error_motor)mensaje(e.error_motor,true);if(e.limite_alcanzado)mensaje('Límite de 5000 frutos: alimentación detenida. Reinicia para otro escenario.');const out=$('salidas');out.replaceChildren();for(const c of ['premium','estandar','rechazo','revision'])textPair(out,c==='revision'?'Recuperación':c,e.contadores[c]);const events=$('eventos');events.replaceChildren();e.eventos.slice(-10).reverse().forEach(evt=>{const row=document.createElement('div');row.className='event';for(const value of [fmt(evt.t_s)+' s',evt.tipo,(evt.id?'#'+evt.id+' · ':'')+evt.detalle]){const span=document.createElement('span');span.textContent=value;row.append(span);}events.append(row);});const f=e.frutos.find(f=>f.id===selected);if(f){const cambio=frutoSeleccionado?.id!==f.id||frutoSeleccionado?.destino!==f.destino;inspeccionarFruto(f);if(cambio||!trayectoriaLinea)dibujarRecorrido(f);}else if(selected&&frutoSeleccionado?.estado!=='salida'){api('frutos/'+selected).then(f=>{if(f.id===selected)inspeccionarFruto(f);}).catch(()=>{});}}
+function actualizar(e){
+  if(estado&&e.t_s<estado.t_s){muestras=[];tiempoVisual=0;seguidor.reiniciar();}
+  estado=e;
+  muestras.push({e,real:performance.now()});
+  if(muestras.length>4)muestras.shift();
+  const ciclo=e.ciclo ?? cicloInicial;
+  const aBordo=Object.values(ciclo.cestas).reduce((a,b)=>a+b,0);
+  const entregados=Object.values(ciclo.entregados).reduce((a,b)=>a+b,0);
+  const {ingresados,en_proceso}=e.contadores;
+  for(const [id, valor] of Object.entries({ingresados,en_proceso,salidos:aBordo,entregados})){
+    $(id).textContent=valor;
+  }
+  $('balance').textContent=`${ingresados} = ${en_proceso} + ${aBordo} + ${entregados}`;
+  const [titulo,detalle]=e.t_s===0&&!e.activa
+    ? ['Preparado','Pulsa Iniciar para llegar al primer punto de recojo.']
+    : fases[ciclo.fase];
+  if($('fase').textContent!==titulo)$('fase').textContent=titulo;
+  if($('fase-detalle').textContent!==detalle)$('fase-detalle').textContent=detalle;
+  $('tiempo').textContent=fmt(e.t_s)+' s';
+  $('modo-reloj').textContent=e.activa?'En marcha':'Pausado';
+  $('iniciar').textContent=e.t_s?'Reanudar':'Iniciar';
+  $('iniciar').disabled=e.activa;
+  $('pausar').disabled=!e.activa;
+  $('paso').disabled=e.activa;
+  $('reiniciar').disabled=false;
+  $('conexion').textContent=e.error_motor?'Error del motor':'Simulación lista';
+  if(e.error_motor)mensaje(e.error_motor,true);
+  if(e.limite_alcanzado)mensaje('Límite de 5000 frutos: alimentación detenida. Reinicia para otro escenario.');
+  for(const clase of ['premium','estandar','rechazo','revision'])$('cesta-'+clase).textContent=ciclo.cestas[clase]??0;
+  const eventos=e.eventos.slice(-10).reverse().map(evt=>[`${fmt(evt.t_s)} s`,evt.tipo,(evt.id?'#'+evt.id+' · ':'')+evt.detalle]);
+  const registro=$('eventos');
+  const firma=JSON.stringify(eventos);
+  if(registro.dataset.firma!==firma){
+    registro.dataset.firma=firma;
+    registro.replaceChildren(...eventos.map(fila=>{
+      const row=document.createElement('div');
+      row.className='event';
+      for(const value of fila){
+        const span=document.createElement('span');
+        span.textContent=value;
+        row.append(span);
+      }
+      return row;
+    }));
+  }
+  const f=e.frutos.find(f=>f.id===selected);
+  if(f){
+    const cambio=frutoSeleccionado?.id!==f.id||frutoSeleccionado?.destino!==f.destino;
+    inspeccionarFruto(f);
+    if(cambio||!trayectoriaLinea)dibujarRecorrido(f);
+  }else if(selected&&frutoSeleccionado?.estado!=='salida'){
+    api('frutos/'+selected).then(f=>{if(f.id===selected)inspeccionarFruto(f);}).catch(()=>{});
+  }
+}
 function animar(now){
  requestAnimationFrame(animar);
  frames++;
@@ -258,9 +377,15 @@ function animar(now){
      const duration=latest.real-prev.real;
      alpha=THREE.MathUtils.clamp((now-latest.real)/Math.max(duration,1),0,1);
    }
-   const t=prev ? THREE.MathUtils.lerp(prev.e.t_s,estado.t_s,alpha) : estado.t_s;
+   const ciclo=estado.ciclo??cicloInicial;
+   const anterior=prev?.e.ciclo??ciclo;
+   const t=THREE.MathUtils.lerp(anterior.movimiento_s,ciclo.movimiento_s,alpha);
    tiempoVisual=Math.max(tiempoVisual,t);
-   actualizarCarrito(tiempoVisual);
+   const fase_s=anterior.fase===ciclo.fase ? THREE.MathUtils.lerp(anterior.fase_s,ciclo.fase_s,alpha) : ciclo.fase_s;
+   const faseVisual={...ciclo,fase_s};
+   actualizarCarrito(tiempoVisual,faseVisual);
+   riel.actualizar(faseVisual);
+   actualizarCestas(faseVisual);
    seguirCarrito();
    const old=new Map(prev?.e.frutos.map(f=>[f.id,f])||[]),active=new Set();
    for(const f of estado.frutos){
@@ -307,8 +432,15 @@ $('exportar').onclick=async()=>{
    const compacto=copy.getObjectByName(clasificador.name);
    for(const node of [...compacto.children])if(node.name!==modelo.root.name)compacto.remove(node);
    for(const a of compacto.getObjectByName(modelo.root.name).children)a.position.set(0,0,0);
-   copy.traverse(o=>o.visible=true);
-   const result=await new GLTFExporter().parseAsync(copy,{binary:true,onlyVisible:false});
+   for(const [clase,{origen}] of Object.entries(modelo.cestas))copy.getObjectByName('Cesta_'+clase).position.copy(origen);
+   copy.getObjectByName(riel.root.name).children[0].rotation.y=0;
+   const temporales=[];
+   copy.traverse(o=>{
+     if(['Contenido_simulado','Arandano_en_recojo'].includes(o.name))temporales.push(o);
+     else o.visible=true;
+   });
+   temporales.forEach(o=>o.removeFromParent());
+   const result=await new GLTFExporter().parseAsync(copy,{binary:true,onlyVisible:true});
    const blob=new Blob([result],{type:'model/gltf-binary'}),url=URL.createObjectURL(blob),a=document.createElement('a');
    a.href=url;
    a.download='BAYA_Movil.glb';

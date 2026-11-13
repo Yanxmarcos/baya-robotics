@@ -5,9 +5,80 @@ import json
 from simulacion import Simulacion
 
 
+DESTINOS = ('rechazo', 'estandar', 'premium', 'revision')
+
+
+class CicloRecojo:
+    NOMBRES = ('Recojo A', 'Recojo B', 'Despacho')
+    MAXIMO_LOTE = 12
+    TIEMPO_RECOJO_S = 6
+
+    def __init__(self, avanzar_carrito):
+        self.avanzar_carrito = avanzar_carrito
+        self.reiniciar()
+
+    def reiniciar(self):
+        self.fase = 'traslado'
+        self.estacion = None
+        self.inicio = 0
+        self.pasos_carrito = 0
+        self.limite_lote = 0
+        self.entregados = dict.fromkeys(DESTINOS, 0)
+        self.ultima_entrega = dict.fromkeys(DESTINOS, 0)
+        self.avanzar_carrito(0)
+
+    def cambiar_fase(self, sim, fase, detalle):
+        self.fase = fase
+        self.inicio = sim.pasos
+        sim.evento(fase, None, detalle, sim.t)
+
+    def paso(self, sim):
+        limite = len(sim.frutos)
+        duracion = (sim.pasos - self.inicio) * sim.p['proceso']['paso_s']
+        if self.fase == 'traslado':
+            self.pasos_carrito += 1
+            llegada = self.avanzar_carrito(self.pasos_carrito)
+            if llegada >= 0:
+                self.estacion = llegada
+                fase = 'desplegar' if llegada < 2 else 'espera_despacho'
+                self.cambiar_fase(sim, fase, f'Parada en {self.NOMBRES[llegada]}')
+        elif self.fase == 'desplegar' and duracion >= .85:
+            self.limite_lote = len(sim.frutos) + self.MAXIMO_LOTE
+            self.cambiar_fase(sim, 'carga', 'Carga manual simulada en el riel lateral')
+        elif self.fase == 'carga':
+            if duracion >= self.TIEMPO_RECOJO_S or len(sim.frutos) >= self.limite_lote:
+                self.cambiar_fase(sim, 'replegar', 'Riel replegándose antes de continuar')
+            else:
+                limite = self.limite_lote
+        elif self.fase == 'replegar' and duracion >= .85:
+            self.estacion = None
+            self.cambiar_fase(sim, 'traslado', 'Carrito en ruta; la banda sigue clasificando')
+        elif self.fase == 'espera_despacho' and len(sim.frutos) == sum(sim.contadores.values()):
+            self.cambiar_fase(sim, 'descarga', 'Retiro de las cuatro cestas en Despacho')
+        elif self.fase == 'descarga' and duracion >= 3:
+            self.ultima_entrega = self.cestas(sim)
+            for clase, cantidad in self.ultima_entrega.items():
+                self.entregados[clase] += cantidad
+            self.estacion = None
+            self.cambiar_fase(sim, 'traslado', f'Despacho completo: {sum(self.ultima_entrega.values())} arándanos entregados')
+        sim.paso(limite_lote=limite)
+
+    def cestas(self, sim):
+        return {clase: sim.contadores[clase] - self.entregados[clase] for clase in DESTINOS}
+
+    def estado(self, sim):
+        return dict(fase=self.fase, estacion=self.estacion, movimiento_s=self.pasos_carrito * sim.p['proceso']['paso_s'],
+                    fase_s=(sim.pasos - self.inicio) * sim.p['proceso']['paso_s'],
+                    cestas=self.cestas(sim), entregados=self.entregados,
+                    ultima_entrega=self.ultima_entrega, maximo_lote=self.MAXIMO_LOTE,
+                    alimentando=self.fase == 'carga' and sim.p['proceso']['alimentacion_s'] > 0 and
+                    len(sim.frutos) < sim.p['proceso']['max_frutos'])
+
+
 class PuenteWeb:
-    def __init__(self):
+    def __init__(self, avanzar_carrito=None):
         self.sim = Simulacion()
+        self.ciclo = CicloRecojo(avanzar_carrito) if avanzar_carrito is not None else None
         self.error = None
         self.acumulado = 0.0
         self.revision_reloj = 0
@@ -24,7 +95,7 @@ class PuenteWeb:
         dt = self.sim.p['proceso']['paso_s']
         try:
             for _ in range(min(200, int((self.acumulado + 1e-12) / dt))):
-                self.sim.paso()
+                self.paso()
                 self.acumulado -= dt
         except Exception as exc:
             self.error = str(exc)
@@ -33,7 +104,15 @@ class PuenteWeb:
     def estado(self):
         data = self.sim.estado()
         data['error_motor'] = self.error
+        if self.ciclo:
+            data['ciclo'] = self.ciclo.estado(self.sim)
         return data
+
+    def paso(self):
+        if self.ciclo:
+            self.ciclo.paso(self.sim)
+        else:
+            self.sim.paso()
 
     def request_json(self, path, body):
         try:
@@ -79,9 +158,11 @@ class PuenteWeb:
         elif path == 'paso':
             if self.sim.activa:
                 raise ValueError('Pausar antes del paso manual')
-            self.sim.paso()
+            self.paso()
         elif path == 'reiniciar':
             self.sim.reset()
+            if self.ciclo:
+                self.ciclo.reiniciar()
             self.error = None
             self.revision_reloj += 1
         else:

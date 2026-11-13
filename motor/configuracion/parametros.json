@@ -1,8 +1,8 @@
 {
   "version": "0.1.0",
   "geometria": {
-    "largo_m": 5.2, "ancho_m": 1.05, "altura_banda_m": 0.95,
-    "canales": 4, "paso_canal_m": 0.19, "radio_rodillo_m": 0.025,
+    "largo_m": 5.2, "ancho_m": 0.66, "altura_banda_m": 0.95,
+    "canales": 1, "paso_canal_m": 0.19, "radio_rodillo_m": 0.025,
     "sensor_x_m": 1.85, "recinto_inicio_m": 1.55, "recinto_fin_m": 2.3,
     "salidas_x_m": {"rechazo": 3.0, "estandar": 3.7, "premium": 4.4, "revision": 4.95},
     "duracion_descarga_s": 0.65

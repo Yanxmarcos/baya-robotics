@@ -2,9 +2,9 @@
 export const pista = {semilargo: 3.45, semiancho: 1.95, radio: 1.10, anchoLinea: .20};
 export const carrito = {velocidad: .70, entreRuedas: .96, radioRueda: .19, frenteSensor: .68, separacionSensor: .17};
 export const estaciones = [
-  {nombre: 'Carga A', x: -.80, z: -pista.semiancho, sentido: 1},
-  {nombre: 'Carga B', x: 1.55, z: -pista.semiancho, sentido: 1},
-  {nombre: 'Entrega', x: .15, z: pista.semiancho, sentido: -1},
+  {nombre: 'Recojo A', x: -.80, z: -pista.semiancho, sentido: 1},
+  {nombre: 'Recojo B', x: 1.55, z: -pista.semiancho, sentido: 1},
+  {nombre: 'Despacho', x: .15, z: pista.semiancho, sentido: -1},
 ];
 const salida = {x: -1.90, z: -pista.semiancho, sentido: 1};
 const paso = .01;

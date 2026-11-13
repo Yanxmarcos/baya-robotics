@@ -1,12 +1,12 @@
-# BAYA Móvil · Clasificación de arándanos en movimiento
+# BAYA Móvil · Recojo, clasificación y despacho de arándanos
 
-BAYA Móvil es un proyecto académico de Robótica de la Universidad Nacional de Trujillo. Simula un carrito de tres ruedas que sigue una línea negra mientras un módulo a bordo preclasifica arándanos. El escenario representa una zona de poscosecha con dos puntos de carga y uno de entrega.
+BAYA Móvil es un proyecto académico de Robótica de la Universidad Nacional de Trujillo. Simula una estación móvil a escala para zonas de poscosecha. Un carrito de tres ruedas sigue una línea entre dos puntos de recojo y una estación de despacho.
 
-Dos sensores reflectivos virtuales leen la cinta. Sus lecturas corrigen las velocidades de las ruedas motrices. Mientras el carrito se desplaza, cada fruto avanza por la banda, recibe una clasificación y se dirige a su salida. La web muestra en paralelo el guiado y la clasificación.
+Dos sensores reflectivos virtuales leen la cinta y corrigen el rumbo. En cada punto de recojo el carrito se detiene y gira el riel lateral para recibir arándanos cargados a mano. La banda clasifica el lote durante la parada y el traslado. En la estación celeste se retiran las cuatro cestas: premium, estándar, rechazo y recuperación.
 
 ## El proceso simulado
 
-1. Alimentación y distribución de los frutos en cuatro canales.
+1. Alimentación por un único riel lateral y transporte de los frutos en fila.
 2. Transporte y giro hacia la zona de inspección.
 3. Generación de mediciones sintéticas de diámetro, color y defecto.
 4. Clasificación por reglas en rechazo, estándar o premium.
@@ -35,7 +35,7 @@ Cada visitante dispone de una simulación independiente dentro de su pestaña.
 
 ## Alcance académico
 
-El prototipo físico corresponde a la base seguidora de línea. La integración del clasificador sobre el carrito se representa en la web mediante una maqueta 3D con datos sintéticos y reglas de clasificación. El ultrasonido y el servomotor se muestran como componentes del carrito. La simulación se centra en el seguimiento de línea. Las estaciones marcan puntos de paso del escenario.
+El prototipo físico corresponde a la base seguidora de línea, de unos 21 cm. El primer piso contiene Arduino Uno, LM259S, L298N, HC-SR04 sobre servo, dos módulos reflectivos MH Sensor Series Flying-Fish, motores, ruedas, portapilas, pilas, cables, protoboard y un condensador de función específica pendiente de confirmar. El segundo piso se representa a unos 8,5 cm del primero e integra el riel, el sensor de clasificación y las cestas. La carga, el módulo óptico y el despacho se simulan con datos sintéticos.
 
 ## Integrantes
 

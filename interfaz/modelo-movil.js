@@ -1,6 +1,10 @@
 import * as THREE from 'three';
 import {carrito, estaciones, pista} from './seguimiento.js';
 
+export const separacionPisos = 1.50 * 8.5 / 21;
+export const alturaSegundoPiso = .318 + separacionPisos;
+export const puntoDespacho = new THREE.Vector3(estaciones[2].x, .816, estaciones[2].z + .84);
+
 export function construirPista() {
   const root = new THREE.Group();
   root.name = 'Pista_de_poscosecha';
@@ -29,10 +33,10 @@ export function construirPista() {
   root.add(linea);
 
   const labels = estaciones.map(({nombre, x, z}) => {
-    const lado = Math.sign(z), entrega = nombre === 'Entrega';
+    const lado = Math.sign(z), entrega = nombre === 'Despacho';
     const plataforma = new THREE.Mesh(
       new THREE.BoxGeometry(1.06, .023, .61),
-      new THREE.MeshStandardMaterial({color: entrega ? 0x267876 : 0x8f6529, roughness: .9}),
+      new THREE.MeshStandardMaterial({color: entrega ? 0x2c9cc1 : 0xbf7928, roughness: .9}),
     );
     plataforma.position.set(x, .01, z + lado * .57);
     plataforma.receiveShadow = true;
@@ -40,9 +44,80 @@ export function construirPista() {
     const borde = new THREE.Mesh(new THREE.BoxGeometry(.88, .005, .065), new THREE.MeshBasicMaterial({color: 0xf7e4b8}));
     borde.position.set(x, .026, z + lado * .39);
     root.add(borde);
-    return {text: nombre, position: new THREE.Vector3(x, .04, z + lado * .60)};
+    const mesa = new THREE.Group();
+    const alto = entrega ? .79 : alturaSegundoPiso + .16;
+    const mesaX = x - (entrega ? 0 : .29);
+    const centro = z + lado * .84;
+    const materialMesa = plataforma.material;
+    const tablero = new THREE.Mesh(new THREE.BoxGeometry(.97, .052, .34), materialMesa);
+    tablero.position.set(mesaX, alto, centro);
+    tablero.castShadow = tablero.receiveShadow = true;
+    mesa.add(tablero);
+    for (const dx of [-.39, .39]) {
+      for (const dz of [-.13, .13]) {
+        const pata = new THREE.Mesh(new THREE.BoxGeometry(.042, alto, .042), materialMesa);
+        pata.position.set(mesaX + dx, alto / 2, centro + dz);
+        pata.castShadow = true;
+        mesa.add(pata);
+      }
+    }
+    root.add(mesa);
+    return {text: nombre, position: new THREE.Vector3(mesaX, alto + .07, z + lado * .70)};
   });
   return {root, labels};
+}
+
+export function construirRiel(altura, entradaX, entradaZ) {
+  const root = new THREE.Group(), brazo = new THREE.Group(), pickables = [];
+  root.name = 'Riel_lateral_de_recojo';
+  root.position.set(entradaX, altura, entradaZ-.17);
+  root.userData = {etiqueta:'Riel lateral de recojo',funcion: 'Gira hacia la izquierda para recibir arándanos cargados a mano y conducirlos a la banda.',
+    evidencia: 'Riel y accionamiento conceptuales del segundo piso.'};
+  root.add(brazo);
+  const naranja = new THREE.MeshStandardMaterial({color:0xc45c17,roughness:.52});
+  const banda = new THREE.MeshStandardMaterial({color:0x38464d,roughness:.76});
+  function pieza(name, geometria, mat, x, y, z) {
+    const m = new THREE.Mesh(geometria, mat);
+    m.name = name;
+    m.position.set(x,y,z);
+    m.castShadow = m.receiveShadow = true;
+    brazo.add(m);
+    pickables.push(m);
+    return m;
+  }
+  pieza('Banda_del_riel',new THREE.BoxGeometry(.68,.044,.17),banda,.34,0,0);
+  for (const z of [-.094,.094]) pieza('Guía_del_riel',new THREE.BoxGeometry(.68,.07,.023),naranja,.34,.023,z);
+  pieza('Boca_de_carga',new THREE.BoxGeometry(.19,.052,.25),naranja,.69,.002,0);
+  root.add(pieza('Puente_a_la_banda',new THREE.BoxGeometry(.15,.032,.18),banda,-.008,-.017,.09));
+  const rodillos=[];
+  for (let i=1;i<=9;i++) {
+    const r=pieza('Rodillo_de_carga',new THREE.CylinderGeometry(.015,.015,.164,10),naranja,.069*i,.026,0);
+    r.rotation.x=Math.PI/2;
+    rodillos.push(r);
+  }
+  const baya = new THREE.SphereGeometry(.021,12,8);
+  const morado = new THREE.MeshStandardMaterial({color:0x222f67,roughness:.49});
+  const frutos=Array.from({length:5},()=>{
+    const fruto=new THREE.Mesh(baya,morado);
+    fruto.name='Arandano_en_recojo';
+    fruto.castShadow=true;
+    brazo.add(fruto);
+    return fruto;
+  });
+  function actualizar(ciclo) {
+    const {fase, fase_s:t} = ciclo;
+    const apertura=fase==='desplegar'?Math.min(1,t/.85):fase==='carga'?1:fase==='replegar'?Math.max(0,1-t/.85):0;
+    const suave=apertura*apertura*(3-2*apertura);
+    brazo.rotation.y=suave*Math.PI/2;
+    for(const [i,fruto] of frutos.entries()){
+      fruto.visible=fase==='carga' && ciclo.alimentando && t>=i*.14;
+      const avance=((t*1.65-i*.23)%1+1)%1;
+      fruto.position.set(.71-avance*.66,.062,(i%2-.5)*.056);
+    }
+    for(const r of rodillos)r.rotation.y=fase==='carga'?t*8:0;
+  }
+  actualizar({fase:'traslado',fase_s:0});
+  return {root,pickables,actualizar};
 }
 
 export function construirBaseMovil() {
@@ -99,10 +174,17 @@ export function construirBaseMovil() {
   for (const x of [-.64, -.49, .40, .57]) {
     for (const z of [-.34, .34]) cilindro(chasis, 'Tornillo', acero, x, .322, z, .023, .011, 'y');
   }
-  for (const z of [-.135, .055]) caja(chasis, 'Soporte_del_clasificador', acero, -.045, .355, z, 1.14, .075, .056);
+  const superior = conjunto('Segundo piso', 'Plataforma simulada a unos 8,5 cm del primer piso en el modelo de 21 cm.');
+  caja(superior, 'Plataforma_superior', madera, -.075, alturaSegundoPiso-.022, 0, 1.22, .044, .72);
+  for (const x of [-.60, .46]) {
+    for (const z of [-.31, .31]) {
+      cilindro(superior, 'Separador_de_pisos', acero, x, .318+separacionPisos/2, z, .026, separacionPisos, 'y');
+      cilindro(superior, 'Tornillo_superior', acero, x, alturaSegundoPiso+.006, z, .024, .012, 'y');
+    }
+  }
 
   const ruedas = [-1, 1].map(lado => {
-    const rueda = conjunto(lado < 0 ? 'Tracción izquierda' : 'Tracción derecha', 'El controlador regula la velocidad de este motor para corregir el rumbo.');
+    const rueda = conjunto(lado < 0 ? 'Motor y rueda izquierdos' : 'Motor y rueda derechos', 'El controlador regula la velocidad de este motor para corregir el rumbo.');
     const z = lado * carrito.entreRuedas / 2;
     caja(rueda, 'Motor_reductor', amarillo, -.035, .213, lado * .32, .29, .115, .115);
     cilindro(rueda, 'Cuerpo_del_motor', acero, -.19, .21, lado * .32, .049, .11, 'x');
@@ -137,8 +219,8 @@ export function construirBaseMovil() {
   caja(ejeLibre, 'Marca_del_giro', acero, .052, 0, .057, .048, .014, .006);
 
   const sensores = [-1, 1].map(lado => {
-    const nombre = lado < 0 ? 'Sensor izquierdo' : 'Sensor derecho';
-    const sensor = conjunto(nombre, 'Mide el contraste entre el piso y la cinta para guiar el carrito.');
+    const nombre = lado < 0 ? 'Flying-Fish · sensor izquierdo' : 'Flying-Fish · sensor derecho';
+    const sensor = conjunto(nombre, 'Módulo de reflectancia MH Sensor Series Flying-Fish. Lee el contraste entre piso y cinta.');
     const z = lado * carrito.separacionSensor / 2;
     caja(sensor, 'Módulo_reflectivo', azul, carrito.frenteSensor, .151, z, .138, .027, .072);
     for (const dx of [-.027, .027]) cilindro(sensor, 'Lente', dx < 0 ? blanco : negro, carrito.frenteSensor + dx, .119, z, .017, .035, 'y');
@@ -151,7 +233,7 @@ export function construirBaseMovil() {
     return mat;
   });
 
-  const ultrasonido = conjunto('Ultrasonido y servo', 'El prototipo incluye un sensor de distancia sobre un servo. Se representa como referencia del montaje.');
+  const ultrasonido = conjunto('HC-SR04 y servomotor', 'Módulo ultrasónico de distancia montado sobre el servo del prototipo.');
   caja(ultrasonido, 'Carcasa_del_servo', azul, .586, .384, 0, .13, .126, .18);
   cilindro(ultrasonido, 'Eje_del_servo', blanco, .595, .458, 0, .063, .022, 'y');
   caja(ultrasonido, 'Placa_del_ultrasonido', azul, .647, .509, 0, .028, .146, .272);
@@ -160,14 +242,32 @@ export function construirBaseMovil() {
     cilindro(ultrasonido, 'Rejilla_del_transductor', negro, .696, .512, z, .044, .008, 'x');
   }
 
-  const control = conjunto('Electrónica de control', 'El Arduino procesa las lecturas. La placa roja acciona los dos motores del carrito.');
-  caja(control, 'Controlador_de_motores', rojo, .17, .335, -.34, .17, .029, .14);
+  const control = conjunto('Driver dual L298N', 'Controla los dos motores y permite corregir el rumbo variando su velocidad.');
+  caja(control, 'Driver_dual_L298N', rojo, .17, .335, -.34, .17, .029, .14);
   for (let i = 0; i < 4; i++) caja(control, 'Disipador', negro, .125 + i * .025, .369, -.34, .012, .042, .08);
-  caja(control, 'Arduino', azul, -.36, .332, -.33, .23, .023, .123);
-  caja(control, 'Conector_USB', acero, -.445, .355, -.332, .062, .043, .057);
-  caja(control, 'Protoboard', blanco, -.23, .342, .344, .27, .043, .115);
-  caja(control, 'Interruptor', negro, -.62, .345, .32, .095, .056, .079);
-  const energia = conjunto('Portapilas', 'Alimentación del prototipo. Aquí se representa el conjunto de dos pilas.');
+  const arduino = conjunto('Arduino Uno', 'Procesa las lecturas de línea y envía órdenes al controlador de los motores.');
+  caja(arduino, 'Arduino_Uno', azul, -.36, .332, -.33, .23, .023, .123);
+  caja(arduino, 'Conector_USB', acero, -.445, .355, -.332, .062, .043, .057);
+  caja(arduino, 'Microcontrolador', negro, -.32, .355, -.33, .08, .028, .037);
+  const regulador = conjunto('Regulador LM259S', 'Módulo regulador de tensión LM259S según el inventario del grupo.');
+  caja(regulador, 'Regulador_LM259S', azul, -.49, .333, .15, .17, .025, .10);
+  cilindro(regulador, 'Inductor', negro, -.48, .36, .14, .027, .035, 'y');
+  const protoboard = conjunto('Protoboard', 'Punto de distribución de energía y conexiones en el primer piso.');
+  caja(protoboard, 'Protoboard', blanco, -.23, .342, .344, .27, .043, .115);
+  const condensador = conjunto('Condensador', 'Componente observado en la protoboard. Su función específica en este montaje está por confirmar.');
+  cilindro(condensador, 'Condensador_en_protoboard', negro, -.17, .41, .33, .028, .085, 'y');
+  cilindro(condensador, 'Tapa_metálica', acero, -.17, .454, .33, .026, .005, 'y');
+  caja(protoboard, 'Interruptor', negro, -.62, .345, .32, .095, .056, .079);
+  const cables = conjunto('Cableado', 'Conexiones representativas entre la alimentación, el control, los sensores y los motores.');
+  for (const [i, color] of [0xc43a32, 0x263238, 0xd8a02b, 0x2870a2, 0x398f70].entries()) {
+    const z = (i-2)*.033;
+    const curva = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(-.52, .35, .16+z), new THREE.Vector3(-.30, .48, .14+z),
+      new THREE.Vector3(-.03, .37, -.10+z), new THREE.Vector3(.19, .36, -.29+z),
+    ]);
+    pieza(cables, 'Cable', new THREE.TubeGeometry(curva, 14, .008, 5, false), material(color,.78), 0, 0, 0);
+  }
+  const energia = conjunto('Portapilas y pilas', 'Alimentación del prototipo. Aquí se representa el conjunto de dos pilas.');
   const verde = material(0x628039, .63);
   caja(energia, 'Soporte_de_pilas', negro, -.59, .202, 0, .235, .10, .31);
   for (const z of [-.069, .069]) cilindro(energia, 'Pila', verde, -.592, .174, z, .051, .197, 'x');

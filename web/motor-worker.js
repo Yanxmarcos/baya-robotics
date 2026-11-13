@@ -3,6 +3,17 @@ let dispatch,tick,bridge,previous=performance.now();
 const progress=message=>postMessage({kind:'progress',message});
 async function initialize(){
   progress('Cargando motor local…');
+  const {SeguidorDeLinea, estaciones} = await import('./seguimiento.js');
+  const seguidor = new SeguidorDeLinea();
+  let proxima = 0;
+  function avanzarCarrito(pasos) {
+    if (!pasos) { seguidor.reiniciar(); proxima = 0; return -1; }
+    const {siguiente} = seguidor.avanzarHasta(pasos / 100);
+    if (siguiente === proxima) return -1;
+    const llegada = proxima;
+    proxima = siguiente;
+    return llegada < estaciones.length ? llegada : -1;
+  }
   importScripts('./runtime/pyodide/0.28.3/pyodide.js');
   const py=await loadPyodide({indexURL:new URL('./runtime/pyodide/0.28.3/',self.location.href).href});
   progress('Preparando simulación…');
@@ -14,7 +25,8 @@ async function initialize(){
     if(!response.ok)throw Error('Falta un archivo del motor: '+name);
     py.FS.writeFile('/baya/'+name,await response.text());
   }
-  py.runPython("import sys\nsys.path.insert(0, '/baya')\nfrom puente_web import PuenteWeb\n_baya = PuenteWeb()");
+  py.globals.set('avanzar_carrito', avanzarCarrito);
+  py.runPython("import sys\nsys.path.insert(0, '/baya')\nfrom puente_web import PuenteWeb\n_baya = PuenteWeb(avanzar_carrito)");
   bridge=py.globals.get('_baya');dispatch=bridge.request_json;tick=bridge.tick;
   previous=performance.now();
   setInterval(()=>{

@@ -155,15 +155,16 @@ class Simulacion:
                 self.contadores[f['destino']] += 1
                 self.evento('salida', f, f['destino'], f['t_salida'])
 
-    def paso(self):
+    def paso(self, limite_lote=None):
         p = self.p['proceso']
         a, b = self.t, (self.pasos+1)*p['paso_s']
         for f in self.frutos:
             self._mover(f, a, b)
         # Intentos a tiempos exactos; no depende de FPS ni del navegador.
-        if p['alimentacion_s'] > 0 and len(self.frutos) < p['max_frutos']:
+        limite = p['max_frutos'] if limite_lote is None else min(limite_lote, p['max_frutos'])
+        if p['alimentacion_s'] > 0 and len(self.frutos) < limite:
             self.siguiente_alimentacion = max(self.siguiente_alimentacion, a)
-            while self.siguiente_alimentacion < b - 1e-12:
+            while self.siguiente_alimentacion < b - 1e-12 and len(self.frutos) < limite:
                 instante = self.siguiente_alimentacion
                 antes = len(self.frutos)
                 self.alimentar(instante)

@@ -13,14 +13,71 @@
 .pista-status dt { color: var(--muted); font-size: 11px; }
 .pista-status dd { margin: 3px 0 0; font-size: 13px; font-weight: 600; color: #173442; }
 .station-label { border-color: #829ca8; color: #173442; font-weight: 650; }
+#nombre-pieza {
+  position: absolute;
+  z-index: 3;
+  max-width: min(240px, calc(100% - 16px));
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: #173442;
+  color: #f8fcfe;
+  font-size: 12px;
+  pointer-events: none;
+}
+#componentes { margin: 11px 0; }
+#componentes h3 { margin: 12px 0 5px; font-size: 12px; }
+#componentes ul { margin: 0 0 10px; padding-left: 17px; line-height: 1.5; }
+#componentes li + li { margin-top: 3px; }
 .scene-top { flex-wrap: wrap; }
-#escena { height: clamp(360px, calc(100vh - 440px), 620px); }
+.intro { margin: -9px 0 16px; color: var(--muted); font-size: 13px; }
+.fase-actual {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  padding: 9px 16px;
+  background: #dcebed;
+  color: #173442;
+  font-size: 12px;
+}
+.fase-actual strong { font-size: 13px; }
+.guia { padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.guia ol { margin: 0; padding-left: 19px; line-height: 1.5; }
+.guia li + li { margin-top: 7px; }
+.inspector section + section { margin-top: 15px; }
+.cestas { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 6px; margin: 0; }
+.cestas div { padding: 5px 7px; border: 1px solid var(--line); background: #f7fafb; }
+.cestas dt { margin: 0; }
+.cestas dd { font-size: 16px; font-variant-numeric: tabular-nums; }
+.cestas div:nth-child(1) dd { color: #00685f; }
+.cestas div:nth-child(2) dd { color: #805311; }
+.cestas div:nth-child(3) dd { color: #9d3d32; }
+.cestas div:nth-child(4) dd { color: #485866; }
+summary { cursor: pointer; font-weight: 600; }
+summary:focus-visible { outline: 3px solid #007c96; outline-offset: 2px; }
+.events { padding: 10px 16px; min-height: 0; flex: 0 0 auto; }
+.events #eventos { margin-top: 8px; }
+.parameters label { margin-top: 11px; }
+.parameters .tabs { padding-bottom: 12px; margin-bottom: 12px; }
+.parameters h2 { margin-bottom: 8px; }
+#escena { min-height: 300px; height: clamp(300px, calc(100dvh - 335px), 650px); }
+@media (min-width: 1101px) and (max-height: 840px) {
+  header { height: 54px; }
+  aside, .parameters { padding: 14px 16px; }
+  .scene-top { padding: 9px 12px; }
+  .statistics { padding-block: 9px; }
+  footer { min-height: 60px; padding-block: 8px; }
+  #escena { height: clamp(290px, calc(100dvh - 357px), 480px); }
+}
 @media (max-width: 1100px) {
   #escena { height: 420px; }
+  .inspector section + section { margin-top: 0; }
 }
 @media (max-width: 720px) {
   .pista-status { padding: 8px 10px; gap: 8px; }
   .pista-status dd { font-size: 12px; }
   .identity { flex-wrap: wrap; gap: 4px 10px; }
+  .inspector section + section { margin-top: 15px; }
+  .fase-actual { padding: 7px 10px; }
   #escena { height: clamp(300px, 90vw, 400px); }
 }
