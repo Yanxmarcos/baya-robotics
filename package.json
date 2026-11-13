@@ -2,13 +2,13 @@
   "name": "baya-clasificacion-optica",
   "version": "0.1.0",
   "private": true,
-  "description": "BAYA original, preparado para Vercel con el motor en el navegador",
+  "description": "BAYA Móvil: simulación 3D de seguimiento de línea y clasificación de arándanos",
   "type": "module",
   "engines": { "node": "22.x" },
   "scripts": {
     "build": "node herramientas/construir.mjs",
     "dev": "node herramientas/servir.mjs",
     "preview": "node herramientas/servir.mjs",
-    "test": "node --test pruebas/paquete.test.mjs"
+    "test": "node --test pruebas/paquete.test.mjs pruebas/seguimiento.test.mjs"
   }
 }

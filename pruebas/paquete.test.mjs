@@ -7,7 +7,7 @@ import {createHash} from 'node:crypto';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const digest=data=>createHash('sha256').update(data).digest('hex');
 test('HTML, CSS, geometría y bibliotecas 3D conservan sus bytes',async()=>{
-  for(const file of ['index.html','estilos.css','modelo.js','vendor/three.module.js','vendor/OrbitControls.js','vendor/GLTFExporter.js','vendor/BufferGeometryUtils.js']){
+  for(const file of ['index.html','estilos.css','modelo.js','modelo-movil.js','seguimiento.js','vendor/three.module.js','vendor/OrbitControls.js','vendor/GLTFExporter.js','vendor/BufferGeometryUtils.js']){
     assert.equal(digest(await fs.readFile(path.join(root,'interfaz',file))),digest(await fs.readFile(path.join(root,'dist',file))),file);
   }
 });

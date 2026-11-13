@@ -1,8 +1,8 @@
-# BAYA · Clasificación óptica de arándanos
+# BAYA Móvil · Clasificación de arándanos en movimiento
 
-BAYA es un proyecto académico de Robótica de la Universidad Nacional de Trujillo que representa, mediante una simulación tridimensional interactiva, el proceso de clasificación óptica de arándanos inspirado en la TOMRA KATO 260.
+BAYA Móvil es un proyecto académico de Robótica de la Universidad Nacional de Trujillo. Simula un carrito de tres ruedas que sigue una línea negra mientras un módulo a bordo preclasifica arándanos. El escenario representa una zona de poscosecha con dos puntos de carga y uno de entrega.
 
-Su propósito es explicar la relación entre percepción, decisión y actuación: cada fruto ingresa con una identidad propia, avanza por el transporte, recibe una clasificación y se dirige a una salida determinada. La simulación permite observar ese recorrido, modificar sus parámetros y analizar sus resultados.
+Dos sensores reflectivos virtuales leen la cinta. Sus lecturas corrigen las velocidades de las ruedas motrices. Mientras el carrito se desplaza, cada fruto avanza por la banda, recibe una clasificación y se dirige a su salida. La web muestra en paralelo el guiado y la clasificación.
 
 ## El proceso simulado
 
@@ -15,7 +15,9 @@ Su propósito es explicar la relación entre percepción, decisión y actuación
 
 ## Características
 
-- Modelo 3D con vistas isométrica, superior, frontal y lateral, órbita y acercamiento.
+- Carrito 3D basado en el prototipo, con dos ruedas motrices y una rueda loca delantera.
+- Cámaras de seguimiento, pista completa, superior, frontal y lateral, con órbita y acercamiento.
+- Lectura de los dos sensores, siguiente punto del recorrido y vueltas completadas.
 - Representaciones exterior, interior conceptual y vista explotada.
 - Controles de inicio, pausa, reanudación, reinicio y avance paso a paso.
 - Ajustes de velocidad, alimentación, semilla, reproducción y criterios de clasificación.
@@ -27,13 +29,13 @@ Su propósito es explicar la relación entre percepción, decisión y actuación
 
 ## Tecnología
 
-La interfaz utiliza HTML, CSS, JavaScript y Three.js. El motor de simulación está desarrollado en Python con NumPy y se ejecuta en el navegador mediante Pyodide y WebAssembly. Un Web Worker mantiene el cálculo separado de la representación gráfica.
+La interfaz y el guiado virtual utilizan HTML, CSS, JavaScript y Three.js. El motor de clasificación usa Python con NumPy en Pyodide y WebAssembly. El reloj de simulación sincroniza la movilidad con la clasificación.
 
-Cada visitante dispone de una simulación independiente dentro de su pestaña. El modelo y los controles conservan la presentación de la versión local del proyecto.
+Cada visitante dispone de una simulación independiente dentro de su pestaña.
 
 ## Alcance académico
 
-BAYA utiliza datos sintéticos y reglas de clasificación para estudiar el comportamiento del sistema. La geometría y las dimensiones son estimaciones académicas basadas en la referencia industrial. La cámara real, el aprendizaje automático y la construcción de un prototipo físico forman parte de las ampliaciones propuestas.
+El prototipo físico corresponde a la base seguidora de línea. La integración del clasificador sobre el carrito se representa en la web mediante una maqueta 3D con datos sintéticos y reglas de clasificación. El ultrasonido y el servomotor se muestran como componentes del carrito. La simulación se centra en el seguimiento de línea. Las estaciones marcan puntos de paso del escenario.
 
 ## Integrantes
 
